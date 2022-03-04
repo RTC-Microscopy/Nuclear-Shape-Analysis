@@ -1,7 +1,7 @@
 /*E.Camerini 06/2020 version 4.0
  * Addapted by M. Svoren 01/2022 to version 4.1
  * 
-This macro yields a table containing mean lamin signal intensity as well as several 
+This macro yields a table containing several 
 nuclear shape descriptors and the Nuclear irregulatiry index.
 run this macro once the raw image is open.*/ 
 
