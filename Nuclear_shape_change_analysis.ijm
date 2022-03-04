@@ -161,7 +161,7 @@ selectWindow(RESULTS_TABLE);
 Table.save(resultsPath + title + "_" + RESULTS_TABLE + ".csv");
 
 setBatchMode(false);
-print("Finished nculear shape change analysis of " + title + ".")
+print("Finished nculear shape change analysis of " + title + ".");
 
 // Function to calculate the ratio between the maximum and minimum radius of a single-pixel-wide circular ROI.
 // The radius is calulated from the given coordinates of the center of mass of the internal area enclosed by the ROI.
