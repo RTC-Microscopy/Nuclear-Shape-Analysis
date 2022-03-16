@@ -11,6 +11,14 @@ USE_DEFAULT_NAMES = false;
 MASK_TITLE = "MaskStack.tif";
 SPOTS_TITLE = "TrackedSpots.tif";
 
+// Settings for the mask creation
+CREATE_MASK = true; // Set to true if the chosen mask image still needs to be thresholded. The next few settings will determine how. If set to false, the mask image is assumed to already be a binary image and the thresholding will be skipped.
+PREPRO_FILTER = "Median..."; // This is the preprocessing filter command. Normally "Median..." works best, but here you can change it if need be.
+FILTER_RADIUS = 5; // The filter radius (in pixels)
+THRESHOLD_METHOD = "Otsu"; // The name of the threshold used. These names can be found in the dialog of the Image > Adjust > Threshold... command.
+
+STORE_TRACKED_ROIS = true; // Set to true in order to save the outlines of the tracked segments per track, with roi names reflecting the track id and frame number of the segment. Set to false to not store these ROIs.
+
 // Preset constants for the resulting table and its contents. Do not adapt these without also changing the macro to suit.
 RESULTS_TABLE = "Nuclear shape change analysis";
 TAB_HEADER = newArray("Track ID", "Frame Nr", "Area", "Aspect Ratio", "Radii Ratio", "Circularity^-1", "Area over box", "NII", "Delta NII", "Roundness", "Solidity");
@@ -48,6 +56,15 @@ resultsPath = getDir("Please select a results folder");
 
 setBatchMode(true);
 nrOfSlices = nSlices;  // Store the number of slices in the movie
+
+// Create the mask image
+if(CREATE_MASK)
+{
+	selectImage(maskID);
+	run(PREPRO_FILTER, "radius=" + FILTER_RADIUS + " stack");
+	setOption("BlackBackground", true);
+    run("Convert to Mask", "method=" + THRESHOLD_METHOD + " background=Dark calculate black");
+}
 
 // Now let's use the tracked spots to segment the mask movie
 for(i = 0; i < nrOfSlices; i++)
@@ -109,10 +126,21 @@ for (i = 1; i <= maxLabel; i++)
 
 	// Measure the created segments in the entire stack. This creates a results table with one line of measurements for each frame the nucleus appeared in.
 	run("Set Measurements...", "frame area mean min center bounding shape feret's stack redirect=None decimal=3");
-	run("Analyze Particles...", "clear display stack");
+	run("Analyze Particles...", "clear display stack add");
+	if(STORE_TRACKED_ROIS && nResults > 0)
+	{
+		for(roiNr = 0; roiNr < nResults; roiNr++)
+		{
+			sliceNr = getResult("Slice", roiNr);
+			roiManager("select", roiNr);
+			roiManager("rename", "track_" + i + "_frame_" + sliceNr);
+		}
+		run("Select None");
+		roiManager("save", resultsPath + title + "_RoiSet_Track_" + i + ".zip");
+	}
 
 	// Reset the 'previous Nii' feature as we start with a new nucleus
-	prevNii = 0;
+	prevNii = NaN;
 	// Loop through each measured frame to collect data and calculate the missing features
 	for(resNr = 0; resNr < nResults; resNr++)
 	{
@@ -137,7 +165,6 @@ for (i = 1; i <= maxLabel; i++)
 		run("Create Selection");
 		roiManager("Add");
 		roiManager("select", 0);
-		roiManager("rename", "track_" + i + "_frame_" + sliceNr);
 		// Enlarge by one pixel and add this new outline as well
 		run("Enlarge...", "enlarge=1 pixel");
 		roiManager("Add");
@@ -216,7 +243,15 @@ function calculateResults(aTrackID, aFrameNr, aArea, aAR, aRadiiRatio, aCirc, aW
 	circInv = 1/aCirc;
 	areaOverBox = aArea/(aWidth * aHeight);
 	nii = aAR + aRadiiRatio + circInv - areaOverBox;
-	deltaNii = abs(aPrevNii - nii);
+	// Only calculate delta Nii if there is a previous value
+	if(!isNaN(aPrevNii))
+	{
+		deltaNii = abs(aPrevNii - nii);
+	}
+	else 
+	{
+		deltaNii = NaN;
+	}
 	
 	selectWindow(RESULTS_TABLE);
 	nextRow = Table.size;
